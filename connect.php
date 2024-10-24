@@ -7,10 +7,11 @@ $host = 'localhost';
 
  $conn = pg_connect( "host=$host port=$port
            dbname=$db user=$user password=$pass");
+           
  if ($conn === false) {
-  echo 'Connection failed';
-  exit;
+    http_response_code(500);
+    echo json_encode(["message" => "Connection failed"]);
+    exit;
  }
  
- echo 'Connected to the database.';
- pg_close($conn);
+
