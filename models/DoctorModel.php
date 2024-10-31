@@ -10,15 +10,16 @@ class DoctorModel {
 
     public function create($data) {
         $data['password'] = password_hash($data['password'], PASSWORD_BCRYPT);
-        $sql = "INSERT INTO doctor (full_name, birth_date, gender, phone, email, specialty_id, password) VALUES (:full_name, :birth_date, :gender, :phone, :email, :specialty_id, :password)";
+        $sql = "INSERT INTO doctor (name, birthDay, gender, phone, email, speciality_id, password) VALUES (:name, :birthDay, :gender, :phone, :email, :speciality_id, :password) RETURNING id";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($data);
-        return $this->pdo->lastInsertId();
+        $result = $stmt->fetch();
+        return $result['id'];
     }
 
 
     public function getById($id) {
-        $sql = "SELECT doctor_id, full_name, birth_date, gender, phone, email FROM doctor WHERE doctor_id = :id";
+        $sql = "SELECT id, name, birthDay, gender, phone, email, createTime FROM doctor WHERE id = :id";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute(['id' => $id]);
         return $stmt->fetch();
@@ -35,19 +36,19 @@ class DoctorModel {
 
     public function update($data, $id) {
         $params = [
-        'full_name' => $data['full_name'],
-        'birth_date' => $data['birth_date'],
+        'name' => $data['name'],
+        'birthDay' => $data['birthDay'],
         'gender' => $data['gender'],
         'phone' => $data['phone'],
         'email' => $data['email'],
         'doctor_id' => $id
         ];
 
-        $sql = "UPDATE doctor SET full_name = :full_name, birth_date = :birth_date, gender = :gender, phone = :phone, email = :email WHERE doctor_id = :doctor_id";
+        $sql = "UPDATE doctor SET name = :name, birthDay = :birthDay, gender = :gender, phone = :phone, email = :email WHERE id = :doctor_id";
 
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute($params);
-    }
+    }   
 
 
     public function invalidateToken($token) {

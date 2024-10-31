@@ -34,7 +34,7 @@ class DoctorController {
 
         if (!$doctor) {
             http_response_code(401);
-            echo json_encode(['error' => 'User not found']);
+            echo json_encode(['error' => 'Doctor not found']);
             return;
         }
 
@@ -45,7 +45,7 @@ class DoctorController {
         }
 
         $jwtHandler = new JwtHandler();
-        $token = $jwtHandler->jwtEncodeData('doctor', ['doctor_id' => $doctor['doctor_id']]);
+        $token = $jwtHandler->jwtEncodeData('doctor', ['doctor_id' => $doctor['id']]);
         echo json_encode(['token' => $token]);
     }
 
@@ -67,7 +67,7 @@ class DoctorController {
     function registerDoctor() { 
         $data = json_decode(file_get_contents('php://input'), true);
 
-        $requiredFields = ['full_name', 'birth_date', 'gender', 'phone', 'email', 'specialty_id', 'password'];
+        $requiredFields = ['name', 'birthDay', 'gender', 'phone', 'email', 'speciality_id', 'password'];
         foreach ($requiredFields as $field) {
             if (!isset($data[$field])) {
                 http_response_code(400);
@@ -76,7 +76,7 @@ class DoctorController {
             }
         }
 
-        $newDoctorId = $this->model->createDoctor($data);
+        $newDoctorId = $this->model->create($data);
 
         if ($newDoctorId) {
             http_response_code(201);
@@ -131,7 +131,7 @@ class DoctorController {
 
         $data = json_decode(file_get_contents('php://input'), true);
 
-        $requiredFields = ['full_name', 'birth_date', 'gender', 'phone', 'email'];
+        $requiredFields = ['name', 'birthDay', 'gender', 'phone', 'email'];
         foreach ($requiredFields as $field) {
             if (!isset($data[$field])) {
                 http_response_code(400);
@@ -140,7 +140,7 @@ class DoctorController {
             }
         }
 
-        if (!in_array($data['gender'], ['Мужской', 'Женский'])) {
+        if (!in_array($data['gender'], ['Male', 'Female'])) {
             http_response_code(400);
             echo json_encode(['error' => 'Invalid gender value']);
             return;
