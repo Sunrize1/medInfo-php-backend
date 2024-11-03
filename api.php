@@ -5,16 +5,30 @@ require_once 'controllers/DoctorController.php';
 require_once 'controllers/PatientController.php';
 require_once 'models/DoctorModel.php';
 require_once 'models/PatientModel.php';
+require_once 'models/InspectionModel.php';
+require_once 'models/DiagnosisModel.php';
+require_once 'services/DoctorService.php';
+require_once 'services/PatientService.php';
+require_once 'services/InspectionService.php';
+require_once 'services/DiagnosisService.php';
 
 header("Content-Type:application/json");
 
 $router = new AltoRouter();
 
 $doctorModel = new DoctorModel($pdo);
-$doctorController = new DoctorController($doctorModel, $pdo);
+$doctorService = new DoctorService($doctorModel);
+$doctorController = new DoctorController($doctorService, $pdo);
+
+$diagnosisModel = new DiagnosisModel($pdo);
+$diagnosisService = new DiagnosisService($diagnosisModel);
+
+$inspectionModel = new InspectionModel($pdo);
+$inspectionService = new InspectionService($inspectionModel, $diagnosisService);
 
 $patientModel = new PatientModel($pdo);
-$patientController = new PatientController($patientModel, $pdo);
+$patientService = new PatientService($patientModel);
+$patientController = new PatientController($patientService, $inspectionService, $pdo);
 
 //doctor
 $router->map('POST', '/api/doctor/register', function() use ($doctorController) {
@@ -43,5 +57,11 @@ $router->map('GET', '/api/patient', function() use ($patientController) {
 });
 $router->map('GET', '/api/patient/[:id]', function($id) use ($patientController) {
     $patientController->getPatientById($id);
+});
+$router->map('POST', '/api/patient/[:id]/inspections', function($id) use ($patientController) {
+    $patientController->createInspectionForPatient($id);
+});
+$router->map('GET', '/api/patient/[:id]/inspections', function($id) use ($patientController) {
+    $patientController->getAllInspectionsOfPatient($id);
 });
 ?>

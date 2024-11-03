@@ -1,173 +1,88 @@
 <?php
-require_once 'auth/JWTHandler.php';
 require_once 'auth/authMiddleware.php';
 
 class DoctorController {
- private $model;
- private $pdo;
+    private $service;
+    private $pdo;
 
-    public function __construct($model, $pdo) {
-        $this->model = $model;
+    public function __construct($service, $pdo) {
+        $this->service = $service;
         $this->pdo = $pdo;
     }
 
-
-    function loginDoctor() {
+    public function loginDoctor() {
         $data = json_decode(file_get_contents('php://input'), true);
 
-        if (!isset($data['email']) || !isset($data['password'])) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Missing required fields']);
-            return;
-        }
-
-        $email = $data['email'];
-        $password = $data['password'];
-
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Invalid email format']);
-            return;
-        }
-
-        $doctor = $this->model->getByEmail($email);
-
-        if (!$doctor) {
+        try {
+            $token = $this->service->loginDoctorService($data);
+            http_response_code(200);
+            echo json_encode(['token' => $token]);
+        } catch (Exception $e) {
             http_response_code(401);
-            echo json_encode(['error' => 'Doctor not found']);
-            return;
+            echo json_encode(['error' => $e->getMessage()]);
         }
-
-        if (!password_verify($password, $doctor['password'])) {
-            http_response_code(401);
-            echo json_encode(['error' => 'Invalid password']);
-            return;
-        }
-
-        $jwtHandler = new JwtHandler();
-        $token = $jwtHandler->jwtEncodeData('doctor', ['doctor_id' => $doctor['id']]);
-        echo json_encode(['token' => $token]);
     }
 
-
-    function logoutDoctor() {
+    public function logoutDoctor() {
         $headers = apache_request_headers();
         if (!authMiddleware($headers, $this->pdo)) {
             return;
         }
 
-        $authHeader = $headers['Authorization'];
-        $token = str_replace('Bearer ', '', $authHeader);
-        $this->model->invalidateToken($token);
-
-        http_response_code(200);
-        echo json_encode(['message' => 'Logout successful']);
+        try {
+            $this->service->logoutDoctor($headers);
+            http_response_code(200);
+            echo json_encode(['message' => 'Logout successful']);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
     }
 
-    function registerDoctor() { 
+    public function registerDoctor() {
         $data = json_decode(file_get_contents('php://input'), true);
 
-        $requiredFields = ['name', 'birthDay', 'gender', 'phone', 'email', 'speciality_id', 'password'];
-        foreach ($requiredFields as $field) {
-            if (!isset($data[$field])) {
-                http_response_code(400);
-                echo json_encode(['error' => "Missing required field: $field"]);
-                return;
-            }
-        }
-
-        $newDoctorId = $this->model->create($data);
-
-        if ($newDoctorId) {
+        try {
+            $newDoctorId = $this->service->registerDoctor($data);
             http_response_code(201);
             echo json_encode(['message' => 'Doctor registered successfully', 'doctor_id' => $newDoctorId]);
-        } else {
-            http_response_code(500);
-            echo json_encode(['error' => 'Failed to register doctor']);
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['error' => $e->getMessage()]);
         }
     }
 
-
-    function getCurrentDoctor() {
+    public function getCurrentDoctor() {
         $headers = apache_request_headers();
         if (!authMiddleware($headers, $this->pdo)) {
             return;
         }
 
-        $authHeader = $headers['Authorization'];
-        preg_match('/Bearer\s(\S+)/', $authHeader, $matches);
-        $token = $matches[1];
-
-        $jwtHandler = new JwtHandler();
-        $decoded = $jwtHandler->jwtDecodeData($token);
-
-        $doctorId = $decoded['data']->doctor_id;
-
-        $doctorInfo = $this->model->getById($doctorId);
-
-        if ($doctorInfo) {
+        try {
+            $doctorInfo = $this->service->getCurrentDoctor($headers);
+            http_response_code(200);
             echo json_encode($doctorInfo);
-        } else {
-            http_response_code(404);
-            echo json_encode(['error' => 'Doctor not found']);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
         }
     }
 
-
-    function updateDoctor() {
+    public function updateDoctor() {
         $headers = apache_request_headers();
         if (!authMiddleware($headers, $this->pdo)) {
             return;
         }
-
-        $authHeader = $headers['Authorization'];
-        preg_match('/Bearer\s(\S+)/', $authHeader, $matches);
-        $token = $matches[1];
-
-        $jwtHandler = new JwtHandler();
-        $decoded = $jwtHandler->jwtDecodeData($token);
-
-        $doctorId = $decoded['data']->doctor_id;
 
         $data = json_decode(file_get_contents('php://input'), true);
 
-        $requiredFields = ['name', 'birthDay', 'gender', 'phone', 'email'];
-        foreach ($requiredFields as $field) {
-            if (!isset($data[$field])) {
-                http_response_code(400);
-                echo json_encode(['error' => "Missing required field: $field"]);
-                return;
-            }
-        }
-
-        if (!in_array($data['gender'], ['Male', 'Female'])) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Invalid gender value']);
-            return;
-        }
-
-        $phone = preg_replace('/[^0-9]/', '', $data['phone']);
-        if (strlen($phone) !== 11) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Invalid phone number']);
-            return;
-        }
-        $data['phone'] = '+7 (' . substr($phone, 1, 3) . ') ' . substr($phone, 4, 3) . '-' . substr($phone, 7, 2) . '-' . substr($phone, 9, 2);
-
-        if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Invalid email format']);
-            return;
-        }
-
-        $result = $this->model->update($data, $doctorId);
-
-        if ($result) {
+        try {
+            $result = $this->service->updateDoctor($data, $headers);
             http_response_code(200);
             echo json_encode(['message' => 'Doctor updated successfully']);
-        } else {
-            http_response_code(500);
-            echo json_encode(['error' => 'Failed to update doctor']);
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['error' => $e->getMessage()]);
         }
     }
 }

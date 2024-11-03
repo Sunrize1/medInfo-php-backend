@@ -1,14 +1,16 @@
 <?php
-require_once 'auth/JWTHandler.php';
 require_once 'auth/authMiddleware.php';
+require_once 'services/PatientService.php';
 
 class PatientController {
-    private $model;
+    private $patientService;
+    private $inspectionService;
     private $pdo;
 
 
-    public function __construct($model, $pdo) {
-        $this->model = $model;
+    public function __construct($patientService, $inspectionService, $pdo) {
+        $this->patientService = $patientService;
+        $this->inspectionService = $inspectionService;
         $this->pdo = $pdo;
     }
 
@@ -21,23 +23,13 @@ class PatientController {
 
         $data = json_decode(file_get_contents('php://input'), true);
 
-        $requiredFields = ['name', 'birthday', 'gender'];
-        foreach ($requiredFields as $field) {
-            if (!isset($data[$field])) {
-                http_response_code(400);
-                echo json_encode(['error' => "Missing required field: $field"]);
-                return;
-            }
-        }
-
-        $newPatientId = $this->model->create($data);
-
-        if ($newPatientId) {
+        try {
+            $newPatientId = $this->patientService->createPatient($data);
             http_response_code(201);
             echo json_encode(['message' => 'Patient created successfully', 'id' => $newPatientId]);
-        } else {
-            http_response_code(500);
-            echo json_encode(['error' => 'Failed to create patient']);
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['error' => $e->getMessage()]);
         }
     }
 
@@ -48,14 +40,13 @@ class PatientController {
             return;
         }
 
-        $patients = $this->model->get();
-
-        if($patients) {
+        try {
+            $patients = $this->patientService->getAllPatients();
             http_response_code(200);
             echo json_encode($patients);
-        } else {
+        } catch (Exception $e) {
             http_response_code(500);
-            echo json_encode(['error' => 'Failed to get patients']);
+            echo json_encode(['error' => $e->getMessage()]);
         }
     }
 
@@ -66,14 +57,49 @@ class PatientController {
             return;
         }
 
-        $patient = $this->model->getById($id);
-
-        if($patient) {
+        try {
+            $patient = $this->patientService->getPatientById($id);
             http_response_code(200);
             echo json_encode($patient);
-        } else {
+        } catch (Exception $e) {
             http_response_code(404);
-            echo json_encode(['error' => 'patient not found']);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+    }
+
+
+    public function createInspectionForPatient($id) {
+        $headers = apache_request_headers();
+        if (!authMiddleware($headers, $this->pdo)) {
+            return;
+        }
+
+        $data = json_decode(file_get_contents('php://input'), true);
+
+        try {
+            $newInspectionId= $this->inspectionService->createInspection($data, $id, $headers);
+            http_response_code(201);
+            echo json_encode(['message' => 'inspection created successfully', 'id' => $newInspectionId]);
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+    }
+
+
+    public function getAllInspectionsOfPatient($id) {
+        $headers = apache_request_headers();
+        if (!authMiddleware($headers, $this->pdo)) {
+            return;
+        }
+
+        try {
+            $inspections = $this->inspectionService->getAllinspections($id);
+            http_response_code(200);
+            echo json_encode($inspections);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
         }
     }
 }

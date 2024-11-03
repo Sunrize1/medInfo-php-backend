@@ -6,12 +6,13 @@ class PatientModel {
     public function __construct($pdo) {
         $this->pdo = $pdo;
     }
+    
 
     public function create($data) {
         $sql = "INSERT INTO patient (name, birthday, gender) VALUES (:name, :birthday, :gender) RETURNING id";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($data);
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $result = $stmt->fetch();
         return $result['id'];
     }
 
