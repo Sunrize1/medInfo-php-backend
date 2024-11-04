@@ -69,6 +69,14 @@ class DoctorService {
         return $this->model->getById($doctorId);
     }
 
+    public function getDoctorById($doctorId) {
+        $doctor = $this->model->getById($doctorId);
+        if (!$doctor) {
+            throw new Exception('doctor not found');
+        }
+        return $doctor;
+    }
+
 
     public function updateDoctor($data, $headers) {
         $requiredFields = ['name', 'birthDay', 'gender', 'phone', 'email'];

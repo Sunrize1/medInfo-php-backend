@@ -34,6 +34,14 @@ class InspectionModel {
     }
 
 
+    public function getInspectionChain($id) {
+        $sql = "SELECT * FROM inspection WHERE previousinspectionid = :id";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['id' => $id]);
+        return $stmt->fetchAll();
+    }
+
+
     public function update($id, $data) {
         $params = [
         'anamnesis' => $data['anamnesis'],

@@ -31,4 +31,6 @@ class DiagnosisModel {
         $result = $stmt->fetch();
         return $result;
     }
+
+
 }

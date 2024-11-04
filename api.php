@@ -23,11 +23,13 @@ $doctorController = new DoctorController($doctorService, $pdo);
 $diagnosisModel = new DiagnosisModel($pdo);
 $diagnosisService = new DiagnosisService($diagnosisModel);
 
-$inspectionModel = new InspectionModel($pdo);
-$inspectionService = new InspectionService($inspectionModel, $diagnosisService);
 
 $patientModel = new PatientModel($pdo);
 $patientService = new PatientService($patientModel);
+
+$inspectionModel = new InspectionModel($pdo);
+$inspectionService = new InspectionService($inspectionModel, $diagnosisService, $patientService, $doctorService);
+
 $patientController = new PatientController($patientService, $inspectionService, $pdo);
 
 //doctor
@@ -59,9 +61,13 @@ $router->map('GET', '/api/patient/[:id]', function($id) use ($patientController)
     $patientController->getPatientById($id);
 });
 $router->map('POST', '/api/patient/[:id]/inspections', function($id) use ($patientController) {
-    $patientController->createInspectionForPatient($id);
+    $patientController->createInspectionForPatient($id);    
 });
 $router->map('GET', '/api/patient/[:id]/inspections', function($id) use ($patientController) {
     $patientController->getAllInspectionsOfPatient($id);
+});
+$router->map('GET', '/api/patient/[:id]/inspections/search', function($id) use ($patientController) {
+    $request = $_GET['request'] ?? '';
+    $patientController->searchInspectionsByDiagnosis($id, $request);
 });
 ?>

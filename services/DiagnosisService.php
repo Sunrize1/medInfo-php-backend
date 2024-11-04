@@ -23,4 +23,5 @@ class DiagnosisService {
     public function getMainDiagnosisByInspectionId($patientId) {
         return $this->model->getMainDiagnosis($patientId);
     }
+
 }

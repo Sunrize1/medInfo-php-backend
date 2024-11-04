@@ -3,11 +3,15 @@ require_once 'auth/JWTHandler.php';
 class InspectionService {
     private $model;
     private $diagnosisService;
+    private $patientService;
+    private $doctorService;
 
 
-    public function __construct($model, $diagnosisService) {
+    public function __construct($model, $diagnosisService, $patientService, $doctorService) {
         $this->model = $model;
         $this->diagnosisService = $diagnosisService;
+        $this->patientService = $patientService;
+        $this->doctorService = $doctorService;
     }
 
 
@@ -58,8 +62,8 @@ class InspectionService {
             $data['previousinspectionid'] = null;
         } else {
             $inspection = $this->model->getById($data['previousinspectionid']);
-            if(!$inspection){
-                throw new Exception("inspection doesn't exists");
+            if(!$inspection || $inspection['conclusion'] === "Death"){
+                throw new Exception("inspection doesn't exists or patient is dead");
             }
         }
         
@@ -78,20 +82,23 @@ class InspectionService {
         $inspections = [];
         foreach($results as $result) {
             $diagnosis = $this->diagnosisService->getMainDiagnosisByInspectionId($result['id']);
+            $doctor = $this->doctorService->getDoctorById($result['doctor_id']);
+            $patient = $this->patientService->getPatientById($patientId);
 
-            $inspection = [
-            'id' => $result['id'],
-            'createTime' => $result['createtime'],
-            'previousId' => $result['previousinspectionid'],
-            'date' => $result['date'],
-            'conclusion' => $result['conclusion'],
-            'doctorId' => $result['doctor_id'],
-            'patientId' => $result['patient_id'],
-            'diagnosis' => null
-            ];
+            $result['doctor'] = $doctor['name'];
+            $result['patient'] = $patient['name'];
+            $result['diagnosis'] = $diagnosis;
 
-            $inspection['diagnosis'] = $diagnosis;
-            $inspections[] = $inspection;
+            if($result['previousinspectionid'] !== null) {
+                $result['hasNested'] = true;
+            }
+
+            $chain = $this->model->getInspectionChain($result['id']);
+            if($chain) {
+                $result['hasChain'] = true;
+            }
+
+            $inspections[] = $result;
         }
 
         return [

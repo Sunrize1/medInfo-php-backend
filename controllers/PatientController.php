@@ -102,4 +102,21 @@ class PatientController {
             echo json_encode(['error' => $e->getMessage()]);
         }
     }
+
+    public function searchInspectionsByDiagnosis($id, $request) {
+        $headers = apache_request_headers();
+        if (!authMiddleware($headers, $this->pdo)) {
+            return;
+        }
+
+        try {
+            $inspections = $this->inspectionService->searchInspectionsByDiagnosis($id, $request);
+            http_response_code(200);
+            echo json_encode($inspections);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+    }
+
 }
