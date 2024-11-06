@@ -1,0 +1,58 @@
+<?php
+class InspectionController {
+    private $pdo;
+    private $service;
+
+
+    public function __construct($pdo, $service) {
+        $this->pdo = $pdo;
+        $this->service = $service;
+    }
+
+
+    public function getInspectionById($id) {
+        $headers = apache_request_headers();
+        if (!authMiddleware($headers, $this->pdo)) {
+            return;
+        }
+        
+        try {
+            $inspection = $this->service->getInspectionById($id);
+            http_response_code(200);
+            echo json_encode($inspection);
+        } catch (Exception $e) {
+            http_response_code(404);
+            echo json_encode(['error' => $e->getMessage()]);;
+        }
+
+    }
+
+
+    public function getInspectionChain($id) {
+        $headers = apache_request_headers();
+        if (!authMiddleware($headers, $this->pdo)) {
+            return;
+        }
+        
+        try {
+            $chain = $this->service->getInspectionChain($id);
+            http_response_code(200);
+            echo json_encode($chain);
+        } catch (Exception $e) {
+            http_response_code(404);
+            echo json_encode(['error' => $e->getMessage()]);;
+        }
+    }
+
+
+    public function updateInspection($id) {
+        $headers = apache_request_headers();
+        if (!authMiddleware($headers, $this->pdo)) {
+            return;
+        }
+
+        $data = json_decode(file_get_contents('php://input'), true);
+
+        return $this->service->updateInspection($data, $id);
+    }
+}

@@ -74,12 +74,19 @@ class PatientController {
             return;
         }
 
+        $patient = $this->patientService->getPatientById($id);
+        if(!$patient) {
+            http_response_code(404);
+            echo json_encode("patient not found");
+        }
+
         $data = json_decode(file_get_contents('php://input'), true);
 
         try {
-            $newInspectionId= $this->inspectionService->createInspection($data, $id, $headers);
+            $response = $this->inspectionService->createInspection($data, $id, $headers);
             http_response_code(201);
-            echo json_encode(['message' => 'inspection created successfully', 'id' => $newInspectionId]);
+            echo json_encode(['message' => 'inspection created successfully', 'id' => $response['inspection_id']]);
+            return $response;
         } catch (Exception $e) {
             http_response_code(400);
             echo json_encode(['error' => $e->getMessage()]);
@@ -93,12 +100,18 @@ class PatientController {
             return;
         }
 
+        $patient = $this->patientService->getPatientById($id);
+        if(!$patient) {
+            http_response_code(404);
+            echo json_encode("patient not found");
+        }
+
         try {
             $inspections = $this->inspectionService->getAllinspections($id);
             http_response_code(200);
             echo json_encode($inspections);
         } catch (Exception $e) {
-            http_response_code(500);
+            http_response_code(400);
             echo json_encode(['error' => $e->getMessage()]);
         }
     }
@@ -109,12 +122,18 @@ class PatientController {
             return;
         }
 
+        $patient = $this->patientService->getPatientById($id);
+        if(!$patient) {
+            http_response_code(404);
+            echo json_encode("patient not found");
+        }
+
         try {
             $inspections = $this->inspectionService->searchInspectionsByDiagnosis($id, $request);
             http_response_code(200);
             echo json_encode($inspections);
         } catch (Exception $e) {
-            http_response_code(500);
+            http_response_code(400);
             echo json_encode(['error' => $e->getMessage()]);
         }
     }

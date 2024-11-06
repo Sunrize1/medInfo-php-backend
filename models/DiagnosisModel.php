@@ -32,5 +32,28 @@ class DiagnosisModel {
         return $result;
     }
 
+    public function getById($id) {
+        $sql = "
+        SELECT * FROM diagnosis WHERE id = :id
+        ";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['id' => $id]);
+        return $stmt->fetch();
+    }
 
+    public function update($data) {
+        $sql = "
+            UPDATE 
+                diagnosis
+            SET 
+                type = :type,
+                description = :description,
+                icd_10_id = :icd_10_id
+            WHERE 
+                id = :id
+        ";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($data);
+        return ['message' => 'diagnosis updated succesfuly'];
+    }
 }
