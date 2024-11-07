@@ -21,7 +21,8 @@ class InspectionController {
             http_response_code(200);
             echo json_encode($inspection);
         } catch (Exception $e) {
-            http_response_code(404);
+            $errorCode = is_int($e->getCode()) ? $e->getCode() : 500;
+            http_response_code($errorCode);
             echo json_encode(['error' => $e->getMessage()]);;
         }
 
@@ -39,7 +40,8 @@ class InspectionController {
             http_response_code(200);
             echo json_encode($chain);
         } catch (Exception $e) {
-            http_response_code(404);
+            $errorCode = is_int($e->getCode()) ? $e->getCode() : 500;
+            http_response_code($errorCode);
             echo json_encode(['error' => $e->getMessage()]);;
         }
     }
@@ -53,6 +55,14 @@ class InspectionController {
 
         $data = json_decode(file_get_contents('php://input'), true);
 
-        return $this->service->updateInspection($data, $id);
+        try {
+            $response = $this->service->updateInspection($data, $id);
+            http_response_code(200);
+            echo json_encode(['message' => "updated succesfuly", 'id' => $response]);
+        } catch (Exception $e) {
+            $errorCode = is_int($e->getCode()) ? $e->getCode() : 500;
+            http_response_code($errorCode);
+            echo json_encode(['error' => $e->getMessage()]);;
+        }
     }
 }

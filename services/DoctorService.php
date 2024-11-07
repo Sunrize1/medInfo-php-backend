@@ -56,16 +56,7 @@ class DoctorService {
     }
 
 
-    public function getCurrentDoctor($headers) {
-        $authHeader = $headers['Authorization'];
-        preg_match('/Bearer\s(\S+)/', $authHeader, $matches);
-        $token = $matches[1];
-
-        $jwtHandler = new JwtHandler();
-        $decoded = $jwtHandler->jwtDecodeData($token);
-
-        $doctorId = $decoded['data']->doctor_id;
-
+    public function getCurrentDoctor($doctorId) {
         return $this->model->getById($doctorId);
     }
 
@@ -78,7 +69,7 @@ class DoctorService {
     }
 
 
-    public function updateDoctor($data, $headers) {
+    public function updateDoctor($data, $doctorId) {
         $requiredFields = ['name', 'birthDay', 'gender', 'phone', 'email'];
         foreach ($requiredFields as $field) {
             if (!isset($data[$field])) {
@@ -99,15 +90,6 @@ class DoctorService {
         if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
             throw new Exception('Invalid email format');
         }
-
-        $authHeader = $headers['Authorization'];
-        preg_match('/Bearer\s(\S+)/', $authHeader, $matches);
-        $token = $matches[1];
-
-        $jwtHandler = new JwtHandler();
-        $decoded = $jwtHandler->jwtDecodeData($token);
-
-        $doctorId = $decoded['data']->doctor_id;
 
         return $this->model->update($data, $doctorId);
     }

@@ -24,7 +24,6 @@ class InspectionModel {
                 i.*,
                 d.id AS doctor_id, d.name AS doctor_name, s.name AS doctor_speciality,
                 p.id AS patient_id, p.name AS patient_name, p.birthday AS patient_birthday,
-                diag.id AS diagnosis_id, diag.type AS diagnosis_type, diag.createtime AS diagnosis_createtime, diag.description AS diagnosis_description,  icd.name AS diagnosis_name, icd.code AS diagnosis_code
             FROM 
                 inspection i
             LEFT JOIN 
@@ -33,10 +32,6 @@ class InspectionModel {
                 speciality s ON d.speciality_id = s.id
             LEFT JOIN 
                 patient p ON i.patient_id = p.id
-            LEFT JOIN 
-                diagnosis diag ON i.id = diag.inspection_id AND diag.type = 'Main'
-            LEFT JOIN 
-                icd_10 icd ON diag.icd_10_id = icd.id
             WHERE 
                 i.patient_id = :patientId
         ";
@@ -172,5 +167,64 @@ class InspectionModel {
 
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute($params);
+    }
+
+    public function createDiagnosis($data, $inspectionId) {
+        $data['inspection_id'] = $inspectionId;
+        $sql = "INSERT INTO diagnosis (inspection_id, description, type, icd_10_id) 
+                VALUES (:inspection_id, :description, :type, :icd_10_id) RETURNING id";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($data);
+        $result = $stmt->fetch();
+        return $result['id'];
+    }
+
+
+    public function getMainDiagnosis($inspectionId) {
+        $sql = "
+        SELECT d.*
+        FROM diagnosis d
+        WHERE d.inspection_id = :inspectionId AND d.type = 'Main'
+        ";
+        
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['inspectionId'=> $inspectionId]);
+        $result = $stmt->fetch();
+        return $result;
+    }
+
+    public function getDiagnosisById($id) {
+        $sql = "
+        SELECT * FROM diagnosis WHERE id = :id
+        ";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['id' => $id]);
+        return $stmt->fetch();
+    }
+
+    public function updateDiagnosis($data) {
+        $sql = "
+            UPDATE 
+                diagnosis
+            SET 
+                type = :type,
+                description = :description,
+                icd_10_id = :icd_10_id
+            WHERE 
+                id = :id
+        ";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($data);
+        return ['message' => 'diagnosis updated succesfuly'];
+    }
+
+    public function createConsultation($specialityId, $inspectionId) {
+        $data['inspection_id'] = $inspectionId;
+        $sql = "INSERT INTO consultation (inspection_id, speciality_id) 
+                VALUES (:inspection_id, :speciality_id) RETURNING id";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['inspection_id' => $inspectionId, 'speciality_id' => $specialityId]);
+        $result = $stmt->fetch();
+        return $result['id'];
     }
 }

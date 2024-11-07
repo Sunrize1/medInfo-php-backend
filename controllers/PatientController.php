@@ -28,7 +28,8 @@ class PatientController {
             http_response_code(201);
             echo json_encode(['message' => 'Patient created successfully', 'id' => $newPatientId]);
         } catch (Exception $e) {
-            http_response_code(400);
+            $errorCode = is_int($e->getCode()) ? $e->getCode() : 500;
+            http_response_code($errorCode);
             echo json_encode(['error' => $e->getMessage()]);
         }
     }
@@ -45,7 +46,8 @@ class PatientController {
             http_response_code(200);
             echo json_encode($patients);
         } catch (Exception $e) {
-            http_response_code(500);
+            $errorCode = is_int($e->getCode()) ? $e->getCode() : 500;
+            http_response_code($errorCode);
             echo json_encode(['error' => $e->getMessage()]);
         }
     }
@@ -62,7 +64,8 @@ class PatientController {
             http_response_code(200);
             echo json_encode($patient);
         } catch (Exception $e) {
-            http_response_code(404);
+            $errorCode = is_int($e->getCode()) ? $e->getCode() : 500;
+            http_response_code($errorCode);
             echo json_encode(['error' => $e->getMessage()]);
         }
     }
@@ -74,6 +77,8 @@ class PatientController {
             return;
         }
 
+        $doctorId = getDoctorIdByToken($headers);
+
         $patient = $this->patientService->getPatientById($id);
         if(!$patient) {
             http_response_code(404);
@@ -83,12 +88,13 @@ class PatientController {
         $data = json_decode(file_get_contents('php://input'), true);
 
         try {
-            $response = $this->inspectionService->createInspection($data, $id, $headers);
+            $response = $this->inspectionService->createInspection($data, $id, $doctorId);
             http_response_code(201);
-            echo json_encode(['message' => 'inspection created successfully', 'id' => $response['inspection_id']]);
+            echo json_encode(['message' => 'inspection created successfully', 'id' => $response]);
             return $response;
         } catch (Exception $e) {
-            http_response_code(400);
+            $errorCode = is_int($e->getCode()) ? $e->getCode() : 500;
+            http_response_code($errorCode);
             echo json_encode(['error' => $e->getMessage()]);
         }
     }
@@ -111,7 +117,8 @@ class PatientController {
             http_response_code(200);
             echo json_encode($inspections);
         } catch (Exception $e) {
-            http_response_code(400);
+            $errorCode = is_int($e->getCode()) ? $e->getCode() : 500;
+            http_response_code($errorCode);
             echo json_encode(['error' => $e->getMessage()]);
         }
     }
@@ -133,7 +140,8 @@ class PatientController {
             http_response_code(200);
             echo json_encode($inspections);
         } catch (Exception $e) {
-            http_response_code(400);
+            $errorCode = is_int($e->getCode()) ? $e->getCode() : 500;
+            http_response_code($errorCode);
             echo json_encode(['error' => $e->getMessage()]);
         }
     }

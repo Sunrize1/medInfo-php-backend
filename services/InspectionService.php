@@ -2,50 +2,38 @@
 require_once 'auth/JWTHandler.php';
 class InspectionService {
     private $model;
-    private $diagnosisService;
-    private $patientService;
-    private $doctorService;
+    private $consultationService;
 
-
-    public function __construct($model) {
+    public function __construct($model, $consultationService) {
         $this->model = $model;
+        $this->consultationService = $consultationService;
     }
 
 
-    public function createInspection($data, $patientId, $headers) {
-        $authHeader = $headers['Authorization'];
-        preg_match('/Bearer\s(\S+)/', $authHeader, $matches);
-        $token = $matches[1];
-
-        $jwtHandler = new JwtHandler();
-        $decoded = $jwtHandler->jwtDecodeData($token);
-
-        $doctorId = $decoded['data']->doctor_id;
+    public function createInspection($data, $patientId, $doctorId) {
+        
         $data['patient_id'] = $patientId;
         $data['doctor_id'] = $doctorId;
         
 
-        $requiredFields = ['doctor_id', 'date', 'anamnesis', 'complaints', 'treatment', 'conclusion', 'diagnoses'];
-        foreach ($requiredFields as $field) {
+        $requiredFieldsForInspection = ['doctor_id', 'date', 'anamnesis', 'complaints', 'treatment', 'conclusion', 'diagnoses'];
+        foreach ($requiredFieldsForInspection as $field) {
             if (!isset($data[$field])) {
                 throw new Exception("Missing required field: $field");
             }
         }   
 
-        $hasMainDiagnosis = false;
-        foreach ($data['diagnoses'] as $diagnosis) {
-            if ($diagnosis['type'] === 'Main') {
-                $hasMainDiagnosis = true;
-                break;
-            }
-        }
-
-        if (!$hasMainDiagnosis) {
-            throw new Exception("Only one diagnosis with type 'Main' is required.");
-        }
-        
+        $this->validateDiagnosesForInspection($data['diagnoses']);
         $diagnoses = $data['diagnoses'];
         unset($data['diagnoses']);
+
+        $consultations = [];
+        if($data['consultations']) {
+            $this->validateConsultationsForInspection($data['consultations']);
+            $this->validateCommentsForConsultation($data['consultations']);
+            $consultations = $data['consultations'];
+            unset($data['consultations']);
+        }
         
         if (!isset($data['nextvisitdate'])) {
             $data['nextvisitdate'] = null;
@@ -59,14 +47,18 @@ class InspectionService {
             $data['previousinspectionid'] = null;
         } else {
             $inspection = $this->model->getById($data['previousinspectionid']);
-            if(!$inspection || $inspection['conclusion'] === "Death"){
+            if(!$inspection){
                 throw new Exception("inspection doesn't exists or patient is dead");
+            }
+            if($inspection['patient_id'] !== $patientId) {
+                throw new Exception("previous inspection patient is different");
             }
         }
         
         $inspectionId = $this->model->create($data);
-        $response = ['diagnoses' => $diagnoses, 'inspection_id' => $inspectionId];
-        return $response;
+        $this->createDiagnoses($diagnoses, $inspectionId);
+        $this->consultationService->createConsultations($consultations, $inspectionId, $doctorId);
+        return $inspectionId;
     }
 
 
@@ -86,27 +78,11 @@ class InspectionService {
                 'patientId' => $row['patient_id'],
                 'patient' => $row['patient_name'],
                 'diagnosis' => null,
-                'hasChain' => false,
-                'hasNested' => false
+                'hasChain' => $row['has_chain'],
+                'hasNested' => $row['has_nested']
             ];
 
-            $inspection['diagnosis'] = [
-                    'id' => $row['diagnosis_id'],
-                    'createTime' => $row['diagnosis_createtime'], 
-                    'code' => $row['diagnosis_code'],
-                    'name' => $row['diagnosis_name'],
-                    'description' => $row['diagnosis_description'], 
-                    'type' => $row['diagnosis_type']
-                ];
-
-            if ($row['previousinspectionid'] !== null) {
-                $inspection['hasNested'] = true;
-            }
-
-            $chain = $this->model->getInspectionChain($row['id']);
-            if ($chain) {
-                $inspection['hasChain'] = true;
-            }
+            $inspection['diagnosis'] = $this->getInspectionDiagnoses($row['id']);
 
             $inspections[] = $inspection;
         }
@@ -132,15 +108,9 @@ class InspectionService {
                     'patientId' => $row['patient_id'],
                     'patient' => $row['patient_name'],
                     'diagnosis' => $this->getInspectionDiagnoses($row['id']),
-                    'hasChain' => false,
+                    'hasChain' => $row['has_chain'],
                     'hasNested' => true
                 ];
-
-
-                $subChain = $this->model->getInspectionChain($row['id']);
-                if ($subChain) {
-                    $inspection['hasChain'] = true;
-                }
 
                 $chain[] = $inspection;
             }
@@ -305,11 +275,92 @@ class InspectionService {
         $diagnosesForUpdate[] = $mainDiagnosis;
 
     
+        $this->updateDiagnoses($diagnosesForUpdate);
+        $this->createDiagnoses($diagnosesForCreate, $id);
         $this->model->update($id, $data);
-        $response = [];
-        $response['diagnosesForUpdate'] = $diagnosesForUpdate;
-        $response['diagnosesForCreate'] = ['diagnoses' => $diagnosesForCreate, 'inspection_id' => $id];
-        return $response;
+        return $id;
+    }
+
+    public function updateDiagnoses($data) {
+        $ids = [];
+        foreach($data as $newDiagnosis) {
+            $oldDiagnosis = $this->model->getDiagnosisById($newDiagnosis['id']);
+        if(!$oldDiagnosis) {
+            throw new Exception("diagnosis not found");
+        }
+
+        $requiredFields = ['description', 'type', 'icd_10_id'];
+        foreach ($requiredFields as $field) {
+            if (!isset($newDiagnosis[$field])) {
+                throw new Exception("Missing required field: $field");
+            }
+        }
+
+         $ids[] = $this->model->updateDiagnosis($newDiagnosis);
+        }
+        return $ids;
+    }
+
+    
+    public function createDiagnoses($data, $inspectionId) {
+        foreach ($data as $diagnosis) {
+             $this->model->createDiagnosis($diagnosis, $inspectionId);
+        }
+    }
+
+     //validate functions
+    public function validateDiagnosesForInspection($diagnoses) {
+        $hasMainDiagnosis = false;
+        foreach ($diagnoses as $diagnosis) {
+            if ($diagnosis['type'] === 'Main') {
+                $hasMainDiagnosis = true;
+                break;
+            }
+        }
+
+        if (!$hasMainDiagnosis) {
+            throw new Exception("Only one diagnosis with type 'Main' is required.");
+        }
+
+        $requiredFieldsForDiagnoses = ['description', 'type', 'icd_10_id'];
+        foreach($diagnoses as $diagnosis) {
+        foreach ($requiredFieldsForDiagnoses as $field) {
+            if (!isset($diagnosis[$field])) {
+                throw new Exception("Missing required field for diagnosis: $field");
+            }
+        }
+        }
+
+        return true;
+    }
+
+    public function validateConsultationsForInspection($consultations) {
+            $requiredFieldsForConsultations = ['speciality_id', 'comment'];
+            foreach($consultations as $consultation) {
+                foreach($requiredFieldsForConsultations as $field) {
+                    if (!isset($consultation[$field])) {
+                    throw new Exception("Missing required field for consultation: $field");
+                }
+                }
+            }
+
+            $specialityIds = [];
+            foreach ($consultations as $consultation) {
+                if (isset($specialityIds[$consultation['speciality_id']])) {
+                    throw new Exception("must be only one consultation for one doctor speciality");
+                }
+                $specialityIds[$consultation['speciality_id']] = true;
+            }
+
+        return true;
+    }
+
+    public function validateCommentsForConsultation($consultations) {
+        foreach($consultations as $consultation) {
+            if(!isset($consultation['comment']['content'])) {
+                throw new Exception("Missing required field for comment: content");
+            }
+        }
     }
 
 }

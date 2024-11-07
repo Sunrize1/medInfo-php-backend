@@ -19,7 +19,7 @@ class DoctorModel {
 
 
     public function getById($id) {
-        $sql = "SELECT id, name, birthDay, gender, phone, email, createTime FROM doctor WHERE id = :id";
+        $sql = "SELECT id, name, birthDay, gender, phone, email, createTime, speciality_id FROM doctor WHERE id = :id";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute(['id' => $id]);
         return $stmt->fetch();

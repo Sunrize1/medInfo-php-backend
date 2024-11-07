@@ -32,4 +32,16 @@ function authMiddleware($headers, $pdo) {
     echo json_encode(['error' => 'Unauthorized']);
     return false;
 }
+
+function getDoctorIdByToken($headers) {
+    $authHeader = $headers['Authorization'];
+    preg_match('/Bearer\s(\S+)/', $authHeader, $matches);
+    $token = $matches[1];
+
+    $jwtHandler = new JwtHandler();
+    $decoded = $jwtHandler->jwtDecodeData($token);
+
+    $doctorId = $decoded['data']->doctor_id;
+    return $doctorId;
+}
 ?>
