@@ -275,12 +275,16 @@ class InspectionService {
     }
 
 
-    public function updateInspection($data, $id) {
+    public function updateInspection($data, $id, $doctorId) {
         if(!UUIDValidator::isValid($id)) {
          throw new Exception('invalid id format', 400) ;  
         }
 
         $inspection = $this->model->getById($id);
+        
+        if($doctorId !== $inspection['doctor_id']) {
+           throw new Exception("you are not author of this inspection", 403); 
+        }
 
         if(!$inspection){
             throw new Exception("inspection not found", 404);

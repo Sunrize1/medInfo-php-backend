@@ -54,9 +54,10 @@ class InspectionController {
         }
 
         $data = json_decode(file_get_contents('php://input'), true);
+        $doctorId = getDoctorIdByToken($headers);
 
         try {
-            $response = $this->service->updateInspection($data, $id);
+            $response = $this->service->updateInspection($data, $id, $doctorId);
             http_response_code(200);
             echo json_encode(['message' => "updated succesfuly", 'id' => $response]);
         } catch (Exception $e) {
