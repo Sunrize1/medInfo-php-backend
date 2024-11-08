@@ -10,6 +10,11 @@ class ConsultationService {
     
 
     public function createConsultations($data, $inspectionId, $doctorId) {
+        foreach($data as $consultation) {
+            if(!UUIDValidator::isValid($consultation['speciality_id'])) {
+                throw new Exception('invalid id format', 400) ;  
+        }
+        }
         foreach ($data as $consultation) {
             $consultationId = $this->consultationModel->create($consultation['speciality_id'], $inspectionId);
             $this->consultationModel->createBaseComment($consultation['comment'], $consultationId, $doctorId);
@@ -17,18 +22,22 @@ class ConsultationService {
     }
 
     public function createCommentForConsultation($data, $consultationId, $doctorId) {
+        if(!UUIDValidator::isValid($consultationId)) {
+         throw new Exception('invalid id format', 400) ;  
+        }
+
         if(!isset($data['content'])) {
-           throw new Exception("Invalid arguments"); 
+           throw new Exception("Invalid arguments", 400); 
         }
 
         $consultation = $this->consultationModel->getConsultationById($consultationId);
         if(!$consultation) {
-            throw new Exception("consultation not found");
+            throw new Exception("consultation not found", 404);
         }
         
         $doctor = $this->doctorModel->getById($doctorId);
-        if($doctor['speciality_id'] != $consultation['speciality_id'] or $doctor['id'] != $consultation['doctor_id']) {
-            throw new Exception("User doesn't have add comment to consultation (unsuitable specialty and not the inspection author)");
+        if($doctor['speciality_id'] !== $consultation['speciality_id'] and $doctor['id'] !== $consultation['doctor_id']) {
+            throw new Exception("User doesn't have add comment to consultation (unsuitable specialty and not the inspection author)", 403);
         }
 
         if(!isset($data['parentId'])) {
@@ -36,13 +45,17 @@ class ConsultationService {
         } else {
            $parrentComment = $this->consultationModel->getCommentById($data['parentId']);
 
-           if(!$parrentComment) throw new Exception("parent comment not found");
+           if(!$parrentComment) throw new Exception("parent comment not found", 404);
 
            else return $this->consultationModel->createNestedComment($data, $consultationId, $doctorId);
         }
     }
 
     public function getConsultationById($id) {
+        if(!UUIDValidator::isValid($id)) {
+         throw new Exception('invalid id format', 400) ;  
+        }
+
         $result = $this->consultationModel->getConsultationById($id);
 
         if(!$result) {
@@ -64,6 +77,10 @@ class ConsultationService {
     }
 
     public function getAllCommentsOfConsultation($id) {
+        if(!UUIDValidator::isValid($id)) {
+         throw new Exception('invalid id format', 400) ;  
+        }
+
         $results = $this->consultationModel->getAllCommentsOfConsultation($id);
 
         $comments = [];
@@ -84,6 +101,10 @@ class ConsultationService {
 
 
     public function updateComment($data, $id, $doctorId) {
+        if(!UUIDValidator::isValid($id)) {
+         throw new Exception('invalid id format', 400) ;  
+        }
+
         $comment = $this->consultationModel->getCommentById($id);
         if(!$comment) {
             throw new Exception("comment not found", 404);
@@ -103,11 +124,15 @@ class ConsultationService {
         return $result;
     }
 
-    public function getInspectionsWithConsultations($doctorId){
+    public function getInspectionsWithConsultations($doctorId, $grouped, $page, $size){
         $doctor = $this->doctorModel->getById($doctorId);
-        $results = $this->consultationModel->getInspectionsWithConsultations($doctor['speciality_id']);
+        $offset = ($page - 1) * $size;
+        $results = $this->consultationModel->getInspectionsWithConsultations($doctor['speciality_id'], $grouped, $offset, $size);
 
         $inspections = [];
+
+        if(!$results) return $inspections;
+        
         foreach ($results as $result) {
             $inspection = [
                 'id' => $result['id'],
@@ -134,6 +159,14 @@ class ConsultationService {
              $inspections[] = $inspection;
         }
 
-        return $inspections;
+        $totalCount = $this->consultationModel->getInspectionsCount($doctor['speciality_id']);
+
+        $pagination = [
+            'size' => $size,
+            'count' => ceil($totalCount / $size),
+            'current' => $page
+        ];
+
+        return ['inspections' => $inspections, 'pagination' => $pagination];
     }
 }

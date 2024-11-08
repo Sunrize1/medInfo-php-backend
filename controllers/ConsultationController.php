@@ -66,7 +66,7 @@ class ConsultationController {
         }
     }
 
-    public function getInspectionsWithConsultations() {
+    public function getInspectionsWithConsultations($grouped, $page, $size) {
         $headers = apache_request_headers();
         if (!authMiddleware($headers, $this->pdo)) {
             return;
@@ -75,7 +75,7 @@ class ConsultationController {
         $doctorId = getDoctorIdByToken($headers);
 
         try {
-            $results = $this->service->getInspectionsWithConsultations($doctorId);
+            $results = $this->service->getInspectionsWithConsultations($doctorId, $grouped, $page, $size);
             http_response_code(200);
             echo json_encode($results);
         } catch (Exception $e) {

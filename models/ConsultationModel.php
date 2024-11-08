@@ -48,7 +48,8 @@ class ConsultationModel {
             c.inspection_id,
             s.id AS speciality_id,
             s.createtime AS speciality_createtime,
-            s.name AS speciality_name
+            s.name AS speciality_name,
+            i.doctor_id AS doctor_id
         FROM
             consultation c
         JOIN 
@@ -107,7 +108,7 @@ class ConsultationModel {
     }
 
 
-    public function getInspectionsWithConsultations($specialityId) {
+    public function getInspectionsWithConsultations($specialityId, $grouped, $offset, $size) {
         $sql = "
         SELECT 
             i.*,
@@ -133,11 +134,39 @@ class ConsultationModel {
             icd_10 icd ON di.icd_10_id = icd.id
         WHERE 
             c.speciality_id = :speciality_id
-            AND di.type = 'Main';
+            AND di.type = 'Main'
+        ";
+
+        if ($grouped) {
+            $sql .= " AND i.has_chain = true";
+        }
+
+        $sql .= " LIMIT :size OFFSET :offset";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue('speciality_id', $specialityId);
+        $stmt->bindValue('size', $size);
+        $stmt->bindValue('offset', $offset );
+
+        $stmt->execute();
+        return $stmt->fetchAll();
+
+    }
+
+    public function getInspectionsCount($specialityId) {
+    $sql = "
+        SELECT 
+            COUNT(*) AS total 
+        FROM 
+            inspection i
+        JOIN 
+            consultation c ON i.id = c.inspection_id
+        WHERE 
+            c.speciality_id = :speciality_id
         ";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute(['speciality_id' => $specialityId]);
-        return $stmt->fetchAll();
+        return $stmt->fetch()['total'];
     }
 }

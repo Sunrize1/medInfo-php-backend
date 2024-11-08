@@ -16,6 +16,7 @@ require_once 'services/DoctorService.php';
 require_once 'services/PatientService.php';
 require_once 'services/InspectionService.php';
 require_once 'services/ConsultationService.php';
+require_once 'utils/UUIDValidator.php';
 
 header("Content-Type:application/json");
 
@@ -65,7 +66,23 @@ $router->map('POST', '/api/patient', function() use ($patientController) {
     $patientController->createPatient();
 });
 $router->map('GET', '/api/patient', function() use ($patientController) {
-    $patientController->getAllPatients();
+    $name = isset($_GET['name']) ? $_GET['name'] : null;
+    $conclusion = isset($_GET['conclusion']) ? $_GET['conclusion'] : null;
+    $sorting = isset($_GET['sorting']) ? $_GET['sorting'] : null;
+    $scheduledVisits = isset($_GET['scheduledVisits']) ? filter_var($_GET['scheduledVisits'], FILTER_VALIDATE_BOOLEAN) : false;
+    $onlyMine = isset($_GET['onlyMine']) ? filter_var($_GET['onlyMine'], FILTER_VALIDATE_BOOLEAN) : false;
+    $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+    $size = isset($_GET['size']) ? (int)$_GET['size'] : 5;
+
+    $patientController->getAllPatients(
+        $name,
+        $conclusion,
+        $sorting,
+        $scheduledVisits,
+        $onlyMine,
+        $page,
+        $size
+    );
 });
 $router->map('GET', '/api/patient/[:id]', function($id) use ($patientController) {
     $patientController->getPatientById($id);
@@ -74,7 +91,10 @@ $router->map('POST', '/api/patient/[:id]/inspections', function($id) use ($patie
     $patientController->createInspectionForPatient($id);
 });
 $router->map('GET', '/api/patient/[:id]/inspections', function($id) use ($patientController) {
-    $patientController->getAllInspectionsOfPatient($id);
+    $grouped = isset($_GET['grouped']) ? filter_var($_GET['grouped'], FILTER_VALIDATE_BOOLEAN) : false;
+    $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+    $size = isset($_GET['size']) ? (int)$_GET['size'] : 5;
+    $patientController->getAllInspectionsOfPatient($id, $size, $page, $grouped);
 });
 $router->map('GET', '/api/patient/[:id]/inspections/search', function($id) use ($patientController) {
     $request = $_GET['request'] ?? '';
@@ -95,14 +115,14 @@ $router->map('PUT', '/api/inspection/[:id]', function($id) use ($inspectionContr
 //dictionary
 $router->map('GET', '/api/dictionary/speciality', function() use ($dictionaryController) {
     $name = $_GET['name'] ?? '';
-    $page = $_GET['page'] ?? 1;
-    $size = $_GET['size'] ?? 5;
+    $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+    $size = isset($_GET['size']) ? (int)$_GET['size'] : 5;
     $dictionaryController->getSpecialtiesList($name, $page, $size);
 });
 $router->map('GET', '/api/dictionary/icd10', function() use ($dictionaryController) {
     $request = $_GET['request'] ?? '';
-    $page = $_GET['page'] ?? 1;
-    $size = $_GET['size'] ?? 5;
+    $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+    $size = isset($_GET['size']) ? (int)$_GET['size'] : 5;
     $dictionaryController->getIcd10List($request, $page, $size);
 });
 $router->map('GET', '/api/dictionary/icd10/roots', function() use ($dictionaryController) {
@@ -120,6 +140,9 @@ $router->map('PUT', '/api/consultation/comment/[:id]', function($id) use ($consu
     $consultationController->updateComment($id);
 });
 $router->map('GET', '/api/consultation', function() use ($consultationController) {
-    $consultationController->getInspectionsWithConsultations();
+    $grouped = isset($_GET['grouped']) ? filter_var($_GET['grouped'], FILTER_VALIDATE_BOOLEAN) : false;
+    $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+    $size = isset($_GET['size']) ? (int)$_GET['size'] : 5;
+    $consultationController->getInspectionsWithConsultations($grouped, $page, $size);
 });
 ?>

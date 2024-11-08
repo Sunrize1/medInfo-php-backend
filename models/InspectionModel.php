@@ -18,12 +18,12 @@ class InspectionModel {
     }
 
 
-    public function getAll($patientId) {
+    public function getAll($patientId, $size, $offset, $grouped) {
             $sql = "
             SELECT 
                 i.*,
                 d.id AS doctor_id, d.name AS doctor_name, s.name AS doctor_speciality,
-                p.id AS patient_id, p.name AS patient_name, p.birthday AS patient_birthday,
+                p.id AS patient_id, p.name AS patient_name, p.birthday AS patient_birthday
             FROM 
                 inspection i
             LEFT JOIN 
@@ -36,9 +36,30 @@ class InspectionModel {
                 i.patient_id = :patientId
         ";
         
+        if ($grouped) {
+            $sql .= " AND i.has_chain = true";
+        }
+
+        $sql .= " LIMIT :size OFFSET :offset";
+
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute(['patientId' => $patientId]);
+        $stmt->execute(['patientId' => $patientId, 'size' => $size, 'offset' => $offset]);
         return $stmt->fetchAll();
+    }
+
+    public function getInspectionsCount($patientId) {
+        $sql = "
+        SELECT 
+            COUNT(*) AS total 
+        FROM 
+            inspection i
+        WHERE 
+            i.patient_id = :patient_id
+        ";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['patient_id' => $patientId]);
+        return $stmt->fetch()['total'];
     }
 
 
@@ -60,7 +81,7 @@ class InspectionModel {
         
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute(['id' => $id]);
-        return $stmt->fetchAll();
+        return $stmt->fetch();
     }
 
     
@@ -151,6 +172,30 @@ class InspectionModel {
         return $stmt->fetchAll();
     }
 
+    public function getInspectionConsultations($id) {
+        $sql = "
+            SELECT 
+                c.id AS consultation_id, c.createtime AS consultation_createtime, c.inspection_id,
+                s.id AS speciality_id, s.createtime AS speciality_createtime, s.name AS speciality_name,
+                rc.id AS root_comment_id, rc.createtime AS root_comment_createtime, rc.parent_id, rc.content AS root_comment_content,
+                d.id AS author_id, d.createtime AS author_createtime, d.name AS author_name, d.birthday, d.gender, d.email, d.phone,
+                rc.modified_date AS modified_date
+            FROM 
+                consultation c
+            JOIN 
+                speciality s ON c.speciality_id = s.id
+            JOIN 
+                comment rc ON rc.parent_id IS NULL AND rc.consultation_id = c.id
+            JOIN 
+                doctor d ON rc.doctor_id = d.id
+            WHERE 
+                c.inspection_id = :inspectionId
+        ";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['inspectionId' => $id]);
+        return $stmt->fetchAll();
+    }
+
 
     public function update($id, $data) {
         $params = [
@@ -182,8 +227,14 @@ class InspectionModel {
 
     public function getMainDiagnosis($inspectionId) {
         $sql = "
-        SELECT d.*
+        SELECT d.id,
+            d.createtime AS createtime,
+            d.description AS description,
+            d.type AS type,
+            icd.name AS name,
+            icd.code AS code
         FROM diagnosis d
+        JOIN icd_10 icd ON d.icd_10_id = icd.id
         WHERE d.inspection_id = :inspectionId AND d.type = 'Main'
         ";
         

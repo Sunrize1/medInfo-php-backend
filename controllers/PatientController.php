@@ -35,14 +35,31 @@ class PatientController {
     }
 
 
-    public function getAllPatients() {
+    public function getAllPatients(
+        $name,
+        $conclusion,
+        $sorting,
+        $scheduledVisits,
+        $onlyMine,
+        $page,
+        $size) {
         $headers = apache_request_headers();
         if (!authMiddleware($headers, $this->pdo)) {
             return;
         }
 
+        $doctorId = getDoctorIdByToken($headers);
+
         try {
-            $patients = $this->patientService->getAllPatients();
+            $patients = $this->patientService->getAllPatients(
+                $name,
+                $conclusion,
+                $sorting,
+                $scheduledVisits,
+                $onlyMine,
+                $page,
+                $size,
+                $doctorId);
             http_response_code(200);
             echo json_encode($patients);
         } catch (Exception $e) {
@@ -58,6 +75,7 @@ class PatientController {
         if (!authMiddleware($headers, $this->pdo)) {
             return;
         }
+
 
         try {
             $patient = $this->patientService->getPatientById($id);
@@ -83,6 +101,7 @@ class PatientController {
         if(!$patient) {
             http_response_code(404);
             echo json_encode("patient not found");
+            return;
         }
 
         $data = json_decode(file_get_contents('php://input'), true);
@@ -100,7 +119,7 @@ class PatientController {
     }
 
 
-    public function getAllInspectionsOfPatient($id) {
+    public function getAllInspectionsOfPatient($id, $size, $page, $grouped) {
         $headers = apache_request_headers();
         if (!authMiddleware($headers, $this->pdo)) {
             return;
@@ -110,10 +129,11 @@ class PatientController {
         if(!$patient) {
             http_response_code(404);
             echo json_encode("patient not found");
+            return;
         }
 
         try {
-            $inspections = $this->inspectionService->getAllinspections($id);
+            $inspections = $this->inspectionService->getAllinspectionsOfPatient($id, $size, $page, $grouped);
             http_response_code(200);
             echo json_encode($inspections);
         } catch (Exception $e) {
@@ -133,6 +153,7 @@ class PatientController {
         if(!$patient) {
             http_response_code(404);
             echo json_encode("patient not found");
+            return;
         }
 
         try {
